@@ -1,2 +1,3 @@
 # lang-dev
-Lang dev.
+
+Random ideas on language implementation.
