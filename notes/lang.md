@@ -61,6 +61,29 @@ alias find42 = binary_search(x=42);`
 const exists = find42(xs=[10, 42, 17]); # true
 ```
 
+### Return values
+
+Specifying the return variables as part of function definition, similar to how MATLAB works:
+
+```matlab
+function [m,s] = stat(x)
+    n = length(x);
+    m = sum(x)/n;
+    s = sqrt(sum((x-m).^2/n));
+end
+```
+
+Idea:
+```
+fn [ret: bool] = binary_search(x: i32, xs: [i32]) { ... }
+```
+or:
+```
+fn [ps: [Points]] = generate_points(num: u32) {
+    ps = [random_point() for _ in range(num)]
+}
+```
+
 ## Conventions
 
 ### Single memory region
