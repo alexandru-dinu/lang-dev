@@ -4,6 +4,9 @@ All preconditions must be satisfied before the function call.
 All postconditions must be satisfied after the function call.
 
 What if instead of evaluating post-conditions, we can do property testing to guarantee the results?
+
+Ref:
+- https://github.com/life4/deal
 """
 import inspect
 from typing import Any, Callable, TypeVar
