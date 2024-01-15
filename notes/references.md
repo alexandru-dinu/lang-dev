@@ -1,4 +1,0 @@
-- https://github.com/betaveros/noulith
-- rust syntax: https://learnxinyminutes.com/docs/rust/
-- https://craftinginterpreters.com/introduction.html
-- https://google.github.io/comprehensive-rust/std/box-recursive.html
