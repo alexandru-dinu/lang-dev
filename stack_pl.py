@@ -6,6 +6,8 @@ from typing import Generator
 
 type Value = float | int
 
+KEYWORDS = "mov load if else end dup pop peek dump vars".split()
+
 
 class StackPLSyntaxError(Exception):
     pass
@@ -86,6 +88,8 @@ class StackPL:
                     assert self.stack
                     v = tokens[pc + 1]
                     assert v.isalpha()
+                    if v in KEYWORDS:
+                        raise StackPLSyntaxError(f"{v} is a reserved keyword.")
                     self.vars[v] = self.stack.pop()
                     pc += 1
 
@@ -97,10 +101,20 @@ class StackPL:
 
                 case "if":
                     assert self.stack
-                    true_block, pc_end = StackPL._collect_until_end(tokens=tokens, index=pc + 1)
+                    block, pc_end = StackPL._collect_until_end(tokens=tokens, index=pc + 1)
+
+                    # TODO: must split by outermost else (which pairs with this if, same level)
+                    try:
+                        else_i = block.index("else")
+                        block_true, block_else = block[:else_i], block[else_i + 1 :]
+                    except ValueError:  # "else" not in list
+                        block_true, block_else = block, None
+
                     if cond := self.stack.pop():
-                        yield from self._run(true_block, pc=0)
-                    # TODO: impl else block
+                        yield from self._run(block_true, pc=0)
+                    elif block_else:
+                        yield from self._run(block_else, pc=0)
+
                     pc = pc_end
 
                 case "dup":  # no-op if stack is empty
@@ -186,6 +200,22 @@ def test_if():
         """
     )
     assert list(out) == [{"z": -7, "x": 10, "y": 42, "foobar": 17}]
+
+
+def test_else():
+    s = StackPL()
+    out = s.execute(
+        """\
+        32 77 > if
+            -2 mov x
+        else
+            -3 mov x
+        end
+        load x 10 *
+        peek
+        """
+    )
+    assert list(out) == [-30]
 
 
 def main():
