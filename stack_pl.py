@@ -53,6 +53,26 @@ class StackPL:
 
         raise StackPLSyntaxError("Missing `end` keyword.")
 
+    @staticmethod
+    def _split_else(tokens: list[str]) -> tuple[list[str], list[str] | None]:
+        """Return block_true, block_else"""
+
+        i = 0
+        level = 1
+
+        while i < len(tokens):
+            if tokens[i] == "else":
+                level -= 1
+                if level == 0:
+                    return tokens[:i], tokens[i + 1 :]
+            elif StackPL._requires_block(tokens[i]):
+                level += 1
+
+            i += 1
+
+        # no "else"
+        return tokens, None
+
     def parse(self, prog: str) -> list[str]:
         return prog.split()
 
@@ -101,14 +121,11 @@ class StackPL:
 
                 case "if":
                     assert self.stack
-                    block, pc_end = StackPL._collect_until_end(tokens=tokens, index=pc + 1)
 
-                    # TODO: must split by outermost else (which pairs with this if, same level)
-                    try:
-                        else_i = block.index("else")
-                        block_true, block_else = block[:else_i], block[else_i + 1 :]
-                    except ValueError:  # "else" not in list
-                        block_true, block_else = block, None
+                    block, pc_end = StackPL._collect_until_end(tokens=tokens, index=pc + 1)
+                    assert tokens[pc_end] == "end"
+
+                    block_true, block_else = StackPL._split_else(block)
 
                     if cond := self.stack.pop():
                         yield from self._run(block_true, pc=0)
@@ -182,7 +199,7 @@ def test_vars():
     assert list(out) == [230, None, {"x": 10, "y": 23, "z": 230}, round(23 / 17, 4)]
 
 
-def test_if():
+def test_if_else():
     s = StackPL()
     out = s.execute(
         """\
@@ -192,36 +209,30 @@ def test_if():
             42 mov y
             load x load y * 42 == if
                 3.14 mov ok
+            else
+                -3 2 * -6 == if
+                    1010 mov ok
+                else
+                    -42 mov ok
+                end
+                35 mov needle
+                10 peek
             end
+            20 peek
+            / peek
             17 mov foobar
         end
         load z
         vars
         """
     )
-    assert list(out) == [{"z": -7, "x": 10, "y": 42, "foobar": 17}]
-
-
-def test_else():
-    s = StackPL()
-    out = s.execute(
-        """\
-        32 77 > if
-            -2 mov x
-        else
-            -3 mov x
-        end
-        load x 10 *
-        peek
-        """
-    )
-    assert list(out) == [-30]
+    assert list(out) == [10, 20, 0.5, {"z": -7, "x": 10, "y": 42, "ok": 1010, "needle": 35, "foobar": 17}]
 
 
 def main():
     # test_arithmetic()
     # test_vars()
-    test_if()
+    test_if_else()
 
 
 if __name__ == "__main__":
