@@ -6,7 +6,22 @@ from typing import Generator
 
 type Value = float | int
 
-KEYWORDS = "mov load if else end dup pop peek dump vars".split()
+KEYWORDS = [
+    "mov",
+    "load",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "end",
+    "def",
+    "dup",
+    "pop",
+    "peek",
+    "dump",
+    "vars",
+]
 
 
 class StackPLSyntaxError(Exception):
@@ -29,17 +44,17 @@ class StackPL:
 
     @staticmethod
     def _requires_block(tok: str) -> bool:
-        return tok in ["if"]  # TODO: impl more
+        return tok in ["if", "while"]
 
     @staticmethod
-    def _collect_until_end(tokens: list[str], index: int) -> tuple[list[str], int]:
-        """Collect the block until the outermost `end`."""
+    def _collect_until(keyword: str, tokens: list[str], index: int) -> tuple[list[str], int]:
+        """Collect the block until the outermost `keyword`."""
         i = index
         block = []
         level = 1  # 1 b/c we're in the process of parsing a block
 
         while i < len(tokens):
-            if tokens[i] == "end":
+            if tokens[i] == keyword:
                 level -= 1
                 if level == 0:
                     return block, i
@@ -87,7 +102,7 @@ class StackPL:
                 case _ if (num := self._try_numeric(tok)) is not None:
                     self.stack.append(num)
 
-                case "+" | "-" | "*" | "/" | "==" | ">" | "<":
+                case "+" | "-" | "*" | "/" | "==" | "<" | "<=" | ">" | ">=" | "%":
                     b, a = self.stack.pop(), self.stack.pop()
                     if tok == "+":
                         self.stack.append(a + b)
@@ -99,10 +114,16 @@ class StackPL:
                         self.stack.append(round(a / b, 4))
                     if tok == "==":
                         self.stack.append(a == b)
-                    if tok == ">":
-                        self.stack.append(a > b)
                     if tok == "<":
                         self.stack.append(a < b)
+                    if tok == "<=":
+                        self.stack.append(a <= b)
+                    if tok == ">":
+                        self.stack.append(a > b)
+                    if tok == ">=":
+                        self.stack.append(a >= b)
+                    if tok == "%":
+                        self.stack.append(a % b)
 
                 case "mov":
                     assert self.stack
@@ -122,15 +143,32 @@ class StackPL:
                 case "if":
                     assert self.stack
 
-                    block, pc_end = StackPL._collect_until_end(tokens=tokens, index=pc + 1)
-                    assert tokens[pc_end] == "end"
-
+                    block, pc_end = StackPL._collect_until(
+                        keyword="end", tokens=tokens, index=pc + 1
+                    )
                     block_true, block_else = StackPL._split_else(block)
 
                     if cond := self.stack.pop():
                         yield from self._run(block_true, pc=0)
                     elif block_else:
                         yield from self._run(block_else, pc=0)
+
+                    pc = pc_end
+
+                case "while":
+                    # while <cond> do <body> end
+                    block_cond, pc_do = StackPL._collect_until(
+                        keyword="do", tokens=tokens, index=pc + 1
+                    )
+                    block_body, pc_end = StackPL._collect_until(
+                        keyword="end", tokens=tokens, index=pc_do + 1
+                    )
+
+                    while True:
+                        yield from self._run(block_cond, pc=0)
+                        if not self.stack.pop():
+                            break
+                        yield from self._run(block_body)
 
                     pc = pc_end
 
@@ -226,14 +264,63 @@ def test_if_else():
         vars
         """
     )
-    assert list(out) == [10, 20, 0.5, {"z": -7, "x": 10, "y": 42, "ok": 1010, "needle": 35, "foobar": 17}]
+    assert list(out) == [
+        10,
+        20,
+        0.5,
+        {"z": -7, "x": 10, "y": 42, "ok": 1010, "needle": 35, "foobar": 17},
+    ]
 
 
-def main():
-    # test_arithmetic()
-    # test_vars()
-    test_if_else()
+def test_while():
+    s = StackPL()
+    out = s.execute(
+        """\
+        0 mov i
+        10 mov n
+        while
+            load i load n <=
+        do
+            load i 2 % 1 == if
+                load i peek pop
+            end
+            load i 1 + mov i
+        end
+        """
+    )
+    assert list(out) == list(range(1, 10, 2))
+
+
+def test_nested_while():
+    s = StackPL()
+    out = s.execute(
+        """\
+        1 mov i
+        5 mov n
+        while
+            load i load n <=
+        do
+            1 mov j
+            while
+                load j load i <=
+            do
+                load j peek pop
+                load j 1 + mov j
+            end
+            load i 1 + mov i
+        end
+        """
+    )
+    assert list(out) == sum([list(range(1, n + 1)) for n in range(1, 5 + 1)], [])
+
+
+# def test_func():
+#     """
+#     def inc:
+#         load arg 1 + mov arg
+#     """
+#     raise NotImplementedError
 
 
 if __name__ == "__main__":
-    main()
+    test_nested_while()
