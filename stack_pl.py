@@ -102,7 +102,7 @@ class StackPL:
                 case _ if (num := self._try_numeric(tok)) is not None:
                     self.stack.append(num)
 
-                case "+" | "-" | "*" | "/" | "==" | "<" | "<=" | ">" | ">=" | "%":
+                case "+" | "-" | "*" | "/" | "%" | "==" | "<" | "<=" | ">" | ">=" | "&&" | "||":
                     b, a = self.stack.pop(), self.stack.pop()
                     if tok == "+":
                         self.stack.append(a + b)
@@ -112,6 +112,8 @@ class StackPL:
                         self.stack.append(a * b)
                     if tok == "/":
                         self.stack.append(round(a / b, 4))
+                    if tok == "%":
+                        self.stack.append(a % b)
                     if tok == "==":
                         self.stack.append(a == b)
                     if tok == "<":
@@ -122,8 +124,10 @@ class StackPL:
                         self.stack.append(a > b)
                     if tok == ">=":
                         self.stack.append(a >= b)
-                    if tok == "%":
-                        self.stack.append(a % b)
+                    if tok == "&&":
+                        self.stack.append(a and b)
+                    if tok == "||":
+                        self.stack.append(a or b)
 
                 case "mov":
                     assert self.stack
@@ -314,6 +318,65 @@ def test_nested_while():
     assert list(out) == sum([list(range(1, n + 1)) for n in range(1, 5 + 1)], [])
 
 
+def test_fizzbuzz():
+    # uglier impl. but shows nesting
+    s = StackPL()
+    out = s.execute(
+        """\
+        1 mov i
+        20 mov n
+        while
+            load i load n <=
+        do
+            load i 3 % 0 == load i 5 % 0 == && if
+                -15 peek pop
+            else
+                load i 3 % 0 == if
+                    -3 peek pop
+                else
+                    load i 5 % 0 == if
+                        -5 peek pop
+                    else
+                        load i peek pop
+                    end
+                end
+            end
+            load i 1 + mov i
+        end
+        """
+    )
+    v1 = list(out)
+
+    # cleaner impl.
+    s = StackPL()
+    out = s.execute(
+        """\
+        1 mov i
+        20 mov n
+        while
+            load i load n <=
+        do
+            -1 mov x
+            load i 3 % 0 == if
+                load x 3 * mov x
+            end
+            load i 5 % 0 == if
+                load x 5 * mov x
+            end
+            load x -1 == if
+                load i peek pop
+            else
+                load x peek pop
+            end
+            load i 1 + mov i
+        end
+        """
+    )
+    v2 = list(out)
+
+    assert v1 == v2 == [1, 2, -3, 4, -5, -3, 7, 8, -3, -5, 11, -3, 13, 14, -15, 16, 17, -3, 19, -5]
+
+
 # def test_func():
 #     """
 #     def inc:
@@ -321,6 +384,8 @@ def test_nested_while():
 #     """
 #     raise NotImplementedError
 
+# TODO: support strings
 
 if __name__ == "__main__":
-    test_nested_while()
+    # test_nested_while()
+    test_fizzbuzz()
