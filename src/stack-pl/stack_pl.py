@@ -18,12 +18,12 @@ KEYWORDS = [
     "end",
     "for",
     "func",
+    "get",
     "if",
     "len",
-    "load",
-    "mov",
     "peek",
     "pop",
+    "set",
     "vars",
     "while",
 ]
@@ -161,7 +161,7 @@ class StackPL:
                     if tok == "||":
                         self.stack.append(a or b)
 
-                case "mov":
+                case "set":
                     if not self.stack:
                         raise StackPLStackError("Stack is empty.")
 
@@ -172,7 +172,7 @@ class StackPL:
                     self.vars[v] = self.stack.pop()
                     pc += 1
 
-                case "load":
+                case "get":
                     v = tokens[pc + 1]
                     if not StackPL._is_valid_ident(v):
                         raise StackPLSyntaxError(f"Invalid identifier name `{v}`.")

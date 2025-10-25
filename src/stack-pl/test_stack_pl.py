@@ -27,16 +27,16 @@ def test_vars():
     s = StackPL()
     out = s.execute(
         """\
-        10 mov x
-        23 mov y
-        load x
-        load y
+        10 set x
+        23 set y
+        get x
+        get y
         *
         peek
-        mov z
+        set z
         peek
         vars
-        load y 17 /
+        get y 17 /
         peek
         """
     )
@@ -47,26 +47,26 @@ def test_if_else():
     s = StackPL()
     out = s.execute(
         """\
-        -7 mov z
+        -7 set z
         42 20 > if
-            10 mov x
-            42 mov y
-            load x load y * 42 == if
-                3.14 mov ok
+            10 set x
+            42 set y
+            get x get y * 42 == if
+                3.14 set ok
             else
                 -3 2 * -6 == if
-                    1010 mov ok
+                    1010 set ok
                 else
-                    -42 mov ok
+                    -42 set ok
                 end
-                35 mov needle
+                35 set needle
                 10 peek
             end
             20 peek
             / peek
-            17 mov foobar
+            17 set foobar
         end
-        load z
+        get z
         vars
         """
     )
@@ -82,15 +82,15 @@ def test_while():
     s = StackPL()
     out = s.execute(
         """\
-        0 mov i
-        10 mov n
+        0 set i
+        10 set n
         while
-            load i load n <=
+            get i get n <=
         do
-            load i 2 % 1 == if
-                load i peek pop
+            get i 2 % 1 == if
+                get i peek pop
             end
-            load i 1 + mov i
+            get i 1 + set i
         end
         """
     )
@@ -101,19 +101,19 @@ def test_nested_while():
     s = StackPL()
     out = s.execute(
         """\
-        1 mov i
-        5 mov n
+        1 set i
+        5 set n
         while
-            load i load n <=
+            get i get n <=
         do
-            1 mov j
+            1 set j
             while
-                load j load i <=
+                get j get i <=
             do
-                load j peek pop
-                load j 1 + mov j
+                get j peek pop
+                get j 1 + set j
             end
-            load i 1 + mov i
+            get i 1 + set i
         end
         """
     )
@@ -124,18 +124,18 @@ def test_strings():
     s = StackPL()
     out = s.execute(
         """\
-        "foo" mov x
-        "bar" mov y
-        load x load y + dup mov z peek
+        "foo" set x
+        "bar" set y
+        get x get y + dup set z peek
         len peek pop
 
-        load z len mov n
-        0 mov i
+        get z len set n
+        0 set i
         while
-            load i load n <
+            get i get n <
         do
-            load z load i !! peek pop
-            load i 1 + mov i
+            get z get i !! peek pop
+            get i 1 + set i
         end
         """
     )
@@ -148,25 +148,25 @@ def test_fizzbuzz():
     s = StackPL()
     out = s.execute(
         """\
-        1 mov i
-        20 mov n
+        1 set i
+        20 set n
         while
-            load i load n <=
+            get i get n <=
         do
-            load i 3 % 0 == load i 5 % 0 == && if
+            get i 3 % 0 == get i 5 % 0 == && if
                 -15 peek pop
             else
-                load i 3 % 0 == if
+                get i 3 % 0 == if
                     -3 peek pop
                 else
-                    load i 5 % 0 == if
+                    get i 5 % 0 == if
                         -5 peek pop
                     else
-                        load i peek pop
+                        get i peek pop
                     end
                 end
             end
-            load i 1 + mov i
+            get i 1 + set i
         end
         """
     )
@@ -176,24 +176,24 @@ def test_fizzbuzz():
     s = StackPL()
     out = s.execute(
         """\
-        1 mov i
-        20 mov n
+        1 set i
+        20 set n
         while
-            load i load n <=
+            get i get n <=
         do
-            "" mov x
-            load i 3 % 0 == if
-                load x "fizz" + mov x
+            "" set x
+            get i 3 % 0 == if
+                get x "fizz" + set x
             end
-            load i 5 % 0 == if
-                load x "buzz" + mov x
+            get i 5 % 0 == if
+                get x "buzz" + set x
             end
-            load x len 0 == if
-                load i peek pop
+            get x len 0 == if
+                get i peek pop
             else
-                load x peek pop
+                get x peek pop
             end
-            load i 1 + mov i
+            get i 1 + set i
         end
         """
     )
@@ -230,21 +230,21 @@ def test_func():
         end
 
         func collatz_once 1
-            dup mov x
+            dup set x
             2 % 0 == if
-                load x call halve
+                get x call halve
             else
-                load x 3 * 1 +
+                get x 3 * 1 +
             end
         end
 
         func collatz_seq 1
-            dup mov x peek
+            dup set x peek
             while
-                load x 1 >
+                get x 1 >
             do
                 call collatz_once
-                dup mov x
+                dup set x
                 peek
             end
             pop

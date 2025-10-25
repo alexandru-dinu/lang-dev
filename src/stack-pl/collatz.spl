@@ -1,19 +1,19 @@
 func collatz_once 1
-    dup mov x
+    dup set x
     2 % 0 == if
-        load x 2 /
+        get x 2 /
     else
-        load x 3 * 1 +
+        get x 3 * 1 +
     end
 end
 
 func collatz_seq 1
-    dup mov x peek
+    dup set x peek
     while
-        load x 1 >
+        get x 1 >
     do
         call collatz_once
-        dup mov x
+        dup set x
         peek
     end
     pop

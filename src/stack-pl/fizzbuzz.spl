@@ -1,22 +1,22 @@
-1 mov i
-50 mov n
+1 set i
+50 set n
 while
-    load i load n <=
+    get i get n <=
 do
-    "" mov x
-    load i 3 % 0 == if
-        load x "fizz" + mov x
+    "" set x
+    get i 3 % 0 == if
+        get x "fizz" + set x
     end
-    load i 5 % 0 == if
-        load x "buzz" + mov x
+    get i 5 % 0 == if
+        get x "buzz" + set x
     end
-    load i 7 % 0 == if
-        load x "bazz" + mov x
+    get i 7 % 0 == if
+        get x "bazz" + set x
     end
-    load x len 0 == if
-        load i peek pop
+    get x len 0 == if
+        get i peek pop
     else
-        load x peek pop
+        get x peek pop
     end
-    load i 1 + mov i
+    get i 1 + set i
 end
