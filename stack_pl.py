@@ -2,25 +2,29 @@
 Simple stack-based PL.
 """
 
-from typing import Generator
+import re
+from collections.abc import Generator
+
+import jinja2
 
 type Value = float | int
 
 KEYWORDS = [
-    "mov",
-    "load",
-    "if",
-    "else",
-    "for",
-    "while",
+    "call",
     "do",
-    "end",
-    "def",
-    "dup",
-    "pop",
-    "peek",
     "dump",
+    "dup",
+    "else",
+    "end",
+    "for",
+    "func",
+    "if",
+    "load",
+    "mov",
+    "peek",
+    "pop",
     "vars",
+    "while",
 ]
 
 
@@ -28,10 +32,19 @@ class StackPLSyntaxError(Exception):
     pass
 
 
+class StackPLStackError(Exception):
+    pass
+
+
+class StackPLVarsError(Exception):
+    pass
+
+
 class StackPL:
     def __init__(self):
         self.stack: list[Value] = []
         self.vars: dict[str, Value] = {}
+        self.funcs: dict[str, tuple[int, list[str]]] = {}  # name -> (arity, body)
 
     @staticmethod
     def _try_numeric(x) -> Value | None:
@@ -39,12 +52,16 @@ class StackPL:
             f = float(x)
             i = int(f)
             return i if i == f else f
-        except ValueError as e:
+        except ValueError:
             return None
 
     @staticmethod
+    def _is_valid_ident(x: str) -> bool:
+        return x not in KEYWORDS and re.match(r"(?=_*[a-z])[a-z_]+", x)
+
+    @staticmethod
     def _requires_block(tok: str) -> bool:
-        return tok in ["if", "while"]
+        return tok in ["if", "while", "func"]
 
     @staticmethod
     def _collect_until(keyword: str, tokens: list[str], index: int) -> tuple[list[str], int]:
@@ -103,6 +120,10 @@ class StackPL:
                     self.stack.append(num)
 
                 case "+" | "-" | "*" | "/" | "%" | "==" | "<" | "<=" | ">" | ">=" | "&&" | "||":
+                    if len(self.stack) < 2:
+                        raise StackPLStackError(
+                            f"Insufficient values on the stack for operation `{tok}`. Expected >= 2, got {len(self.stack)}."
+                        )
                     b, a = self.stack.pop(), self.stack.pop()
                     if tok == "+":
                         self.stack.append(a + b)
@@ -111,7 +132,10 @@ class StackPL:
                     if tok == "*":
                         self.stack.append(a * b)
                     if tok == "/":
-                        self.stack.append(round(a / b, 4))
+                        _f = round(a / b, 4)
+                        if _f == (_i := int(_f)):
+                            _f = _i
+                        self.stack.append(_f)
                     if tok == "%":
                         self.stack.append(a % b)
                     if tok == "==":
@@ -130,29 +154,37 @@ class StackPL:
                         self.stack.append(a or b)
 
                 case "mov":
-                    assert self.stack
+                    if not self.stack:
+                        raise StackPLStackError("Stack is empty.")
+
                     v = tokens[pc + 1]
-                    assert v.isalpha()
-                    if v in KEYWORDS:
-                        raise StackPLSyntaxError(f"{v} is a reserved keyword.")
+                    if not StackPL._is_valid_ident(v):
+                        raise StackPLSyntaxError(f"Invalid identifier name `{v}`.")
+
                     self.vars[v] = self.stack.pop()
                     pc += 1
 
                 case "load":
                     v = tokens[pc + 1]
-                    assert v.isalpha() and v in self.vars
+                    if not StackPL._is_valid_ident(v):
+                        raise StackPLSyntaxError(f"Invalid identifier name `{v}`.")
+                    if v not in self.vars:
+                        raise StackPLVarsError(f"Variable `{v}` is not defined.")
+
                     self.stack.append(self.vars[v])
                     pc += 1
 
                 case "if":
-                    assert self.stack
+                    if not self.stack:
+                        raise StackPLStackError("Stack is empty.")
 
                     block, pc_end = StackPL._collect_until(
                         keyword="end", tokens=tokens, index=pc + 1
                     )
                     block_true, block_else = StackPL._split_else(block)
 
-                    if cond := self.stack.pop():
+                    # condition is the last thing on the stack
+                    if self.stack.pop():
                         yield from self._run(block_true, pc=0)
                     elif block_else:
                         yield from self._run(block_else, pc=0)
@@ -175,6 +207,39 @@ class StackPL:
                         yield from self._run(block_body)
 
                     pc = pc_end
+
+                case "func":
+                    # func <name> <arity> <body> end
+
+                    name = tokens[pc + 1]
+                    if not StackPL._is_valid_ident(name):
+                        raise StackPLSyntaxError(f"Invalid function name `{name}`")
+
+                    arity = tokens[pc + 2]
+                    assert arity.isnumeric()
+
+                    body, pc_end = StackPL._collect_until(
+                        keyword="end", tokens=tokens, index=pc + 3
+                    )
+                    self.funcs[name] = (int(arity), body)
+                    pc = pc_end
+
+                case "call":
+                    # <arg1> .. <argN> call <name>
+                    name = tokens[pc + 1]
+                    if not StackPL._is_valid_ident(name):
+                        raise StackPLSyntaxError(f"Invalid function name `{name}`.")
+                    if name not in self.funcs:
+                        raise StackPLVarsError(f"Function `{name}` is not defined.")
+
+                    arity, func_body = self.funcs[name]
+                    if (_n := len(self.stack)) < arity:
+                        raise StackPLStackError(
+                            f"Insufficient number of args for function `{name}`. Expected {arity} got {_n}."
+                        )
+
+                    yield from self._run(func_body, pc=0)
+                    pc += 1
 
                 case "dup":  # no-op if stack is empty
                     if self.stack:
@@ -377,15 +442,58 @@ def test_fizzbuzz():
     assert v1 == v2 == [1, 2, -3, 4, -5, -3, 7, 8, -3, -5, 11, -3, 13, 14, -15, 16, 17, -3, 19, -5]
 
 
-# def test_func():
-#     """
-#     def inc:
-#         load arg 1 + mov arg
-#     """
-#     raise NotImplementedError
+def test_func():
+    s = StackPL()
+    prog = jinja2.Environment().from_string(
+        """\
+        func halve 1
+            2 /
+        end
 
-# TODO: support strings
+        func collatz_once 1
+            dup mov x
+            2 % 0 == if
+                load x call halve
+            else
+                load x 3 * 1 +
+            end
+        end
+
+        func collatz_seq 1
+            dup mov x peek
+            while
+                load x 1 >
+            do
+                call collatz_once
+                dup mov x
+                peek
+            end
+            pop
+        end
+
+        {{ arg }} call collatz_seq
+        """
+    )
+
+    def _co(n):
+        return 3 * n + 1 if n % 2 else n // 2
+
+    def _cs(n):
+        yield n
+        if n == 1:
+            return
+        yield from _cs(_co(n))
+
+    for arg in [5, 27, 91, 871, 6171]:
+        assert list(s.execute(prog.render(arg=arg))) == list(_cs(arg))
+
+
+# TODO: errors (... @ index ...)
+# TODO: tracebacks (pass context around?)
+# TODO: strings
+# TODO: comments
+# TODO: did you mean for errors
+# TODO: write highlighter for vim
 
 if __name__ == "__main__":
-    # test_nested_while()
-    test_fizzbuzz()
+    test_func()
