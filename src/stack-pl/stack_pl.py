@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from collections.abc import Generator
 from pathlib import Path
 
-type Value = float | int
+type Value = float | int | str
 
 KEYWORDS = [
     "call",
@@ -19,6 +19,7 @@ KEYWORDS = [
     "for",
     "func",
     "if",
+    "len",
     "load",
     "mov",
     "peek",
@@ -58,6 +59,10 @@ class StackPL:
     @staticmethod
     def _is_valid_ident(x: str) -> bool:
         return x not in KEYWORDS and re.match(r"(?=_*[a-z])[a-z_]+", x)
+
+    @staticmethod
+    def _is_string(x: str) -> bool:
+        return x[0] in ('"', "'") and x[-1] == x[0]
 
     @staticmethod
     def _requires_block(tok: str) -> bool:
@@ -116,7 +121,10 @@ class StackPL:
             tok = tokens[pc]
 
             match tok:
-                case _ if (num := self._try_numeric(tok)) is not None:
+                case _ if StackPL._is_string(tok):
+                    self.stack.append(tok.strip(tok[0]))
+
+                case _ if (num := StackPL._try_numeric(tok)) is not None:
                     self.stack.append(num)
 
                 case "+" | "-" | "*" | "/" | "%" | "==" | "<" | "<=" | ">" | ">=" | "&&" | "||":
@@ -210,7 +218,6 @@ class StackPL:
 
                 case "func":
                     # func <name> <arity> <body> end
-
                     name = tokens[pc + 1]
                     if not StackPL._is_valid_ident(name):
                         raise StackPLSyntaxError(f"Invalid function name `{name}`")
@@ -241,6 +248,33 @@ class StackPL:
                     yield from self._run(func_body, pc=0)
                     pc += 1
 
+                # strings ops
+                case "len":
+                    if not self.stack:
+                        raise StackPLStackError("Stack is empty.")
+                    if not isinstance(self.stack[-1], str):
+                        raise StackPLVarsError(
+                            f"Cannot apply `len` on value of type {type(self.stack[-1])}."
+                        )
+                    self.stack.append(len(self.stack.pop()))
+
+                case "!!":
+                    if len(self.stack) < 2:
+                        raise StackPLStackError(
+                            f"Insufficient values on the stack for operation `{tok}`. Expected >= 2, got {len(self.stack)}."
+                        )
+                    i, s = self.stack.pop(), self.stack.pop()
+                    if not isinstance(s, str):
+                        raise StackPLVarsError(f"Cannot apply `!!` on value of type {type(s)}.")
+                    if not isinstance(i, int):
+                        raise StackPLVarsError(f"Cannot apply `!!` with index of type {type(i)}.")
+                    if not (0 <= i < len(s)):
+                        raise StackPLVarsError(
+                            f"Index {i} is out of bounds for string of len {len(s)}."
+                        )
+                    self.stack.append(s[i])
+                # //
+
                 case "dup":  # no-op if stack is empty
                     if self.stack:
                         self.stack.append(self.stack[-1])
@@ -268,7 +302,6 @@ class StackPL:
 
 # TODO: errors (... @ index ...)
 # TODO: tracebacks (pass context around?)
-# TODO: strings
 # TODO: comments
 # TODO: did you mean for errors
 # TODO: write highlighter for vim

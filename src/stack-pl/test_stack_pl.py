@@ -120,6 +120,29 @@ def test_nested_while():
     assert list(out) == sum([list(range(1, n + 1)) for n in range(1, 5 + 1)], [])
 
 
+def test_strings():
+    s = StackPL()
+    out = s.execute(
+        """\
+        "foo" mov x
+        "bar" mov y
+        load x load y + dup mov z peek
+        len peek pop
+
+        load z len mov n
+        0 mov i
+        while
+            load i load n <
+        do
+            load z load i !! peek pop
+            load i 1 + mov i
+        end
+        """
+    )
+    assert list(out) == ["foobar", 6, "f", "o", "o", "b", "a", "r"]
+    assert s.vars == {"x": "foo", "y": "bar", "z": "foobar", "i": 6, "n": 6}
+
+
 def test_fizzbuzz():
     # uglier impl. but shows nesting
     s = StackPL()
@@ -147,9 +170,9 @@ def test_fizzbuzz():
         end
         """
     )
-    v1 = list(out)
+    assert list(out) == [1, 2, -3, 4, -5, -3, 7, 8, -3, -5, 11, -3, 13, 14, -15, 16, 17, -3, 19, -5]
 
-    # cleaner impl.
+    # cleaner impl. with strings
     s = StackPL()
     out = s.execute(
         """\
@@ -158,14 +181,14 @@ def test_fizzbuzz():
         while
             load i load n <=
         do
-            -1 mov x
+            "" mov x
             load i 3 % 0 == if
-                load x 3 * mov x
+                load x "fizz" + mov x
             end
             load i 5 % 0 == if
-                load x 5 * mov x
+                load x "buzz" + mov x
             end
-            load x -1 == if
+            load x len 0 == if
                 load i peek pop
             else
                 load x peek pop
@@ -174,9 +197,28 @@ def test_fizzbuzz():
         end
         """
     )
-    v2 = list(out)
-
-    assert v1 == v2 == [1, 2, -3, 4, -5, -3, 7, 8, -3, -5, 11, -3, 13, 14, -15, 16, 17, -3, 19, -5]
+    assert list(out) == [
+        1,
+        2,
+        "fizz",
+        4,
+        "buzz",
+        "fizz",
+        7,
+        8,
+        "fizz",
+        "buzz",
+        11,
+        "fizz",
+        13,
+        14,
+        "fizzbuzz",
+        16,
+        17,
+        "fizz",
+        19,
+        "buzz",
+    ]
 
 
 def test_func():
@@ -223,3 +265,8 @@ def test_func():
 
     for arg in [5, 27, 91, 871, 6171]:
         assert list(s.execute(prog.render(arg=arg))) == list(_cs(arg))
+
+
+if __name__ == "__main__":
+    # test_strings()
+    test_fizzbuzz()

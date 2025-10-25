@@ -1,0 +1,22 @@
+1 mov i
+50 mov n
+while
+    load i load n <=
+do
+    "" mov x
+    load i 3 % 0 == if
+        load x "fizz" + mov x
+    end
+    load i 5 % 0 == if
+        load x "buzz" + mov x
+    end
+    load i 7 % 0 == if
+        load x "bazz" + mov x
+    end
+    load x len 0 == if
+        load i peek pop
+    else
+        load x peek pop
+    end
+    load i 1 + mov i
+end
