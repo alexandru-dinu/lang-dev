@@ -2,6 +2,8 @@ import enum
 import struct
 from typing import NewType
 
+import pytest
+
 memloc = NewType("memloc", int)
 
 
@@ -136,9 +138,7 @@ class Interpreter:
         self.mem.fill_value(start, end, to_ieee754(float(value)))
 
 
-if __name__ == "__main__":
-    import pytest
-
+def test_simple():
     code = """
     var foo: f32 = 34;
     var bar: f32 = 35;
@@ -154,3 +154,7 @@ if __name__ == "__main__":
 
     with pytest.raises(MemoryError):
         _ = interp.mem.get_value("baz")
+
+
+if __name__ == "__main__":
+    pass

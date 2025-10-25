@@ -1,17 +1,17 @@
 import string
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto, unique
 
-from typing import Callable
 
 @unique
 class TokenType(Enum):
-    LPAREN = "("
-    RPAREN = ")"
-    LBRACKET = "{"
-    RBRACKET = "}"
-    ASSIGN = "="
-    SEMICOLON = ";"
+    LPAREN = auto()
+    RPAREN = auto()
+    LBRACKET = auto()
+    RBRACKET = auto()
+    ASSIGN = auto()
+    SEMICOLON = auto()
 
     IDENTIFIER = auto()
     LITERAL = auto()
@@ -98,6 +98,23 @@ class Lexer:
         self.pos -= 1
 
         return out
+
+
+def test_simple():
+    code = "let x = 5;"
+
+    lexer = Lexer(code=code, pos=0, tokens=[])
+    lexer.lex()
+
+    expected = [
+        TokenType.LET,
+        TokenType.IDENTIFIER,
+        TokenType.ASSIGN,
+        TokenType.LITERAL,
+        TokenType.SEMICOLON,
+    ]
+    assert [t.token_type for t in lexer.tokens] == expected
+
 
 if __name__ == "__main__":
     for t in Lexer("let x = 5;", pos=0, tokens=[]).lex().tokens:

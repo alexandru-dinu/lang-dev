@@ -8,6 +8,7 @@ What if instead of evaluating post-conditions, we can do property testing to gua
 Ref:
 - https://github.com/life4/deal
 """
+
 import inspect
 from typing import Any, Callable, TypeVar
 
@@ -41,9 +42,7 @@ def contract(pre: CondList = None, post: CondList = None) -> Callable:
                 try:
                     assert safe_eval(cond, kwargs)
                 except Exception as e:
-                    raise PreCondError(
-                        f"Precondition <{cond}> was not satisfied!"
-                    ) from e
+                    raise PreCondError(f"Precondition <{cond}> was not satisfied!") from e
 
             ret = func(*args, **kwargs)
 
@@ -51,9 +50,7 @@ def contract(pre: CondList = None, post: CondList = None) -> Callable:
                 try:
                     assert safe_eval(cond, kwargs | {"_ret": ret})
                 except Exception as e:
-                    raise PostCondError(
-                        f"Postcondition <{cond}> was not satisfied!"
-                    ) from e
+                    raise PostCondError(f"Postcondition <{cond}> was not satisfied!") from e
 
         return _inner
 
